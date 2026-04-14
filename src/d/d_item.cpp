@@ -1066,7 +1066,11 @@ static int (*item_getcheck_func_ptr_randomizer[256])() = {
 #endif
 
 inline int getCheckItemFunc(u8 i_itemNo) {
+#if TARGET_PC
+    (dComIfG_isRandomizer() ? item_getcheck_func_ptr_randomizer : item_getcheck_func_ptr)[i_itemNo]();
+#else
     return item_getcheck_func_ptr[i_itemNo]();
+#endif
 }
 
 int checkItemGet(u8 i_itemNo, int i_default) {
@@ -1221,6 +1225,21 @@ void item_func_SMALL_KEY() {
 
 void item_func_KAKERA_HEART() {
     dComIfGp_setItemMaxLifeCount(1);
+#if TARGET_PC
+    if (dComIfG_isRandomizer()) {
+        // TODO rando
+        /*
+        Pasting rando code until the framework has been updated
+        uint8_t maxLife = libtp::tp::d_com_inf_game::dComIfG_gameInfo.save.save_file.player.player_status_a.maxHealth + 1;
+
+            // Check if we have enough hearts to break the barrier.
+            randoPtr->checkSetHCBarrierFlag(rando::HC_Hearts, maxLife);
+
+            // Check if we have enough hearts to unlock the BK check.
+            randoPtr->checkSetHCBkFlag(rando::HC_BK_Hearts, maxLife);
+        */
+    }
+#endif
 }
 
 void item_func_UTUWA_HEART() {
@@ -1232,6 +1251,21 @@ void item_func_UTUWA_HEART() {
     stage_stag_info_class* stag_info = dComIfGp_getStageStagInfo();
     int tmp = dStage_stagInfo_GetSaveTbl(stag_info);
     dComIfGs_onStageLife();
+#if TARGET_PC
+    if (dComIfG_isRandomizer()) {
+        // TODO rando
+        /*
+        Pasting rando code until the framework has been updated
+        uint8_t maxLife = libtp::tp::d_com_inf_game::dComIfG_gameInfo.save.save_file.player.player_status_a.maxHealth + 1;
+
+            // Check if we have enough hearts to break the barrier.
+            randoPtr->checkSetHCBarrierFlag(rando::HC_Hearts, maxLife);
+
+            // Check if we have enough hearts to unlock the BK check.
+            randoPtr->checkSetHCBkFlag(rando::HC_BK_Hearts, maxLife);
+        */
+    }
+#endif
 }
 
 void item_func_MAP() {
@@ -1409,7 +1443,9 @@ void item_func_HAWK_EYE() {
 void item_func_WOOD_STICK() {
     dComIfGs_setCollectSword(COLLECT_WOODEN_SWORD);
     dComIfGs_setSelectEquipSword(dItemNo_WOOD_STICK_e);
-
+#if TARGET_PC
+    if (!dComIfG_isRandomizer())
+#endif
     dComIfGs_onSwitch(28, dComIfGp_roomControl_getStayNo());
 }
 
@@ -1802,6 +1838,14 @@ void item_func_RAFRELS_MEMO() {
 }
 
 void item_func_ASHS_SCRIBBLING() {
+#if TARGET_PC
+    if (dComIfG_isRandomizer()) {
+        if (!dComIfGs_isEventBit(0x3B80)) { // Got earring from Ralis
+            dComIfGs_setItem(SLOT_19, dItemNo_Randomizer_ASHS_SCRIBBLING_e);
+        }
+        return;
+    }
+#endif
     dComIfGs_setItem(SLOT_19, dItemNo_ASHS_SCRIBBLING_e);
 }
 
