@@ -18,6 +18,9 @@
 #include "SSystem/SComponent/c_math.h"
 #include "d/actor/d_a_obj_carry.h"
 #include "d/actor/d_a_player.h"
+#if TARGET_PC
+#include "d/actor/d_a_alink.h"
+#endif
 #include "d/actor/d_a_tag_stream.h"
 #include "d/d_item.h"
 #include "d/d_path.h"
@@ -27,6 +30,10 @@
 #include "f_op/f_op_camera_mng.h"
 #include "f_op/f_op_scene_mng.h"
 #include "m_Do/m_Do_lib.h"
+#if TARGET_PC
+#include "dusk/randomizer/game/verify_item_functions.h"
+#include "dusk/randomizer/game/tools.h"
+#endif
 #include <cstring>
 
 #define MAKE_ITEM_PARAMS(itemNo, itemBitNo, param_2, param_3)                                      \
@@ -1387,6 +1394,11 @@ fopAc_ac_c* fopAcM_getEventPartner(fopAc_ac_c const* i_actor) {
 fpc_ProcID fopAcM_createItemForPresentDemo(cXyz const* i_pos, int i_itemNo, u8 param_2,
                                            int i_itemBitNo, int i_roomNo, csXyz const* i_angle,
                                            cXyz const* i_scale) {
+#if TARGET_PC
+    if (dComIfG_isRandomizer()) {
+        i_itemNo = verifyProgressiveItem(i_itemNo);
+    }
+#endif
     JUT_ASSERT(3214, 0 <= i_itemNo && i_itemNo < 256);
     dComIfGp_event_setGtItm(i_itemNo);
 
@@ -1611,8 +1623,23 @@ fpc_ProcID fopAcM_createItemForBoss(const cXyz* i_pos, int i_itemNo, int i_roomN
     if (dusk::getSettings().game.noHeartDrops && isHeart(i_itemNo)) {
         return fpcM_ERROR_PROCESS_ID_e;
     }
-    #endif
 
+    if (dComIfG_isRandomizer()) {
+        i_itemNo = verifyProgressiveItem(i_itemNo);
+        if (i_itemNo == dItemNo_Randomizer_UTAWA_HEART_e)
+        {
+            param_8 = 0x9F; // Custom flag used for dungeon heart containers.
+        }
+
+        // If we are in Hyrule Field, we want to spawn the goron HP on the ground.
+        if (daAlink_c::checkStageName("F_SP121"))
+        {
+            *const_cast<float*>(&i_pos->y) = -190.f;
+        }
+
+        return initCreatePlayerItem(i_itemNo, param_8 & 0xFF, i_pos, i_roomNo, i_angle, i_scale);
+    } else {
+    #endif
     int _ = -1;
     u32 params = 0xFFFF0000 | param_8 << 8 | (i_itemNo & 0xFF);
 
@@ -1624,6 +1651,9 @@ fpc_ProcID fopAcM_createItemForBoss(const cXyz* i_pos, int i_itemNo, int i_roomN
     }
 
     return fopAcM_GetID(actor);
+    #if TARGET_PC
+    }
+    #endif
 }
 
 fpc_ProcID fopAcM_createItemForMidBoss(const cXyz* i_pos, int i_itemNo, int i_roomNo,
@@ -1632,6 +1662,14 @@ fpc_ProcID fopAcM_createItemForMidBoss(const cXyz* i_pos, int i_itemNo, int i_ro
     #if TARGET_PC
     if (dusk::getSettings().game.noHeartDrops && isHeart(i_itemNo)) {
         return fpcM_ERROR_PROCESS_ID_e;
+    }
+
+    // If we are fighting Ook in randomizer, we want to handle the boomerang check a different way.
+    if (dComIfG_isRandomizer()) {
+        if (daAlink_c::checkStageName("D_MN05B")) {
+            i_itemNo = verifyProgressiveItem(i_itemNo);
+            return initCreatePlayerItem(i_itemNo, 0xFF, i_pos, i_roomNo, i_angle, i_scale);
+        }
     }
     #endif
 
