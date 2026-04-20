@@ -16,7 +16,6 @@ Mods are shared libraries packaged into a `.dusk` zip archive. The loader scans 
    - [Post-hooks](#post-hooks)
    - [Replace hooks](#replace-hooks)
    - [Reading and writing arguments](#reading-and-writing-arguments)
-   - [Raw C hook API](#raw-c-hook-api)
 9. [Full Example](#full-example)
 
 ---
