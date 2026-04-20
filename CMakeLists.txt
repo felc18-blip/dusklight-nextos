@@ -9,26 +9,26 @@ endif ()
 find_package(Git)
 if (GIT_FOUND)
     # make sure version information gets re-run when the current Git HEAD changes
-    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} rev-parse --git-path HEAD
+    execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} rev-parse --git-path HEAD
             OUTPUT_VARIABLE dusk_git_head_filename
             OUTPUT_STRIP_TRAILING_WHITESPACE)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dusk_git_head_filename}")
 
-    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} rev-parse --symbolic-full-name HEAD
+    execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} rev-parse --symbolic-full-name HEAD
             OUTPUT_VARIABLE dusk_git_head_symbolic
             OUTPUT_STRIP_TRAILING_WHITESPACE)
-    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMAND ${GIT_EXECUTABLE} rev-parse --git-path ${dusk_git_head_symbolic}
             OUTPUT_VARIABLE dusk_git_head_symbolic_filename
             OUTPUT_STRIP_TRAILING_WHITESPACE)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dusk_git_head_symbolic_filename}")
 
     # defines DUSK_WC_REVISION
-    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
+    execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
             OUTPUT_VARIABLE DUSK_WC_REVISION
             OUTPUT_STRIP_TRAILING_WHITESPACE)
     # defines DUSK_WC_DESCRIBE
-    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} describe --tags --long --dirty --match "v*"
+    execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} describe --tags --long --dirty --match "v*"
             OUTPUT_VARIABLE DUSK_WC_DESCRIBE
             OUTPUT_STRIP_TRAILING_WHITESPACE)
 
@@ -37,11 +37,11 @@ if (GIT_FOUND)
     string(REGEX REPLACE "-0$" "" DUSK_WC_DESCRIBE "${DUSK_WC_DESCRIBE}")
 
     # defines DUSK_WC_BRANCH
-    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+    execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
             OUTPUT_VARIABLE DUSK_WC_BRANCH
             OUTPUT_STRIP_TRAILING_WHITESPACE)
     # defines DUSK_WC_DATE
-    execute_process(WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} log -1 --format=%ad
+    execute_process(WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} COMMAND ${GIT_EXECUTABLE} log -1 --format=%ad
             OUTPUT_VARIABLE DUSK_WC_DATE
             OUTPUT_STRIP_TRAILING_WHITESPACE)
 else ()
@@ -135,7 +135,7 @@ if (DUSK_MOVIE_SUPPORT)
             -DWITH_JAVA=OFF
         )
         if (CMAKE_TOOLCHAIN_FILE)
-            get_filename_component(_jpeg_toolchain_file "${CMAKE_TOOLCHAIN_FILE}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+            get_filename_component(_jpeg_toolchain_file "${CMAKE_TOOLCHAIN_FILE}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
             list(APPEND _jpeg_cmake_args -DCMAKE_TOOLCHAIN_FILE=${_jpeg_toolchain_file})
         endif ()
         set(_jpeg_passthrough_vars
@@ -221,7 +221,21 @@ FetchContent_Declare(json
     URL_HASH SHA256=42f6e95cad6ec532fd372391373363b62a14af6d771056dbfc86160e6dfff7aa
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
-FetchContent_MakeAvailable(cxxopts json)
+message(STATUS "dusk: Fetching miniz")
+FetchContent_Declare(miniz
+    URL https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+message(STATUS "dusk: Fetching funchook")
+FetchContent_Declare(funchook
+    GIT_REPOSITORY https://github.com/kubo/funchook.git
+    GIT_TAG v1.1.3
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+set(FUNCHOOK_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(FUNCHOOK_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(cxxopts json miniz funchook)
 
 if (DUSK_ENABLE_SENTRY_NATIVE)
     message(STATUS "dusk: Fetching sentry-native")
@@ -263,7 +277,7 @@ else ()
     string(TOLOWER CMAKE_SYSTEM_NAME PLATFORM_NAME)
 endif ()
 
-configure_file(${CMAKE_SOURCE_DIR}/version.h.in ${CMAKE_BINARY_DIR}/version.h)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h)
 
 include(files.cmake)
 
@@ -294,11 +308,19 @@ set(GAME_INCLUDE_DIRS
     libs/JSystem/include
     libs
     extern/aurora/include/dolphin
+    extern/aurora/include
     extern
-    ${CMAKE_BINARY_DIR})
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${miniz_SOURCE_DIR})
+
+# Interface target for mods and sub-projects to inherit game headers/defines
+add_library(dusk_game_headers INTERFACE)
+target_include_directories(dusk_game_headers INTERFACE ${GAME_INCLUDE_DIRS})
+target_compile_definitions(dusk_game_headers INTERFACE TARGET_PC=1)
+target_link_libraries(dusk_game_headers INTERFACE TracyClient)
 
 set(GAME_LIBS aurora::core aurora::gx aurora::gd aurora::si aurora::vi aurora::pad aurora::mtx aurora::os aurora::dvd
-    aurora::card freeverb cxxopts::cxxopts absl::flat_hash_map nlohmann_json::nlohmann_json TracyClient fmt::fmt)
+    aurora::card freeverb cxxopts::cxxopts absl::flat_hash_map nlohmann_json::nlohmann_json TracyClient fmt::fmt funchook-static)
 
 list(APPEND GAME_LIBS libzstd_static)
 
@@ -341,13 +363,14 @@ add_library(game_debug OBJECT ${JSYSTEM_DEBUG_FILES} ${SSYSTEM_FILES}
         src/dusk/imgui/ImGuiAudio.cpp)
 
 # game_base is for all other game code files
-add_library(game_base OBJECT ${DOLZEL_FILES} ${Z2AUDIOLIB_FILES} ${JSYSTEM_FILES} ${REL_FILES} ${DUSK_FILES} ${DOLPHIN_FILES})
+add_library(game_base OBJECT ${DOLZEL_FILES} ${Z2AUDIOLIB_FILES} ${JSYSTEM_FILES} ${REL_FILES} ${DUSK_FILES} ${DOLPHIN_FILES}
+    ${miniz_SOURCE_DIR}/miniz.c)
 
-target_compile_definitions(game_debug PRIVATE ${GAME_COMPILE_DEFS} $<$<CONFIG:Debug>:DEBUG=1> $<$<CONFIG:Debug>:PARTIAL_DEBUG=1>)
-target_compile_definitions(game_base PRIVATE ${GAME_COMPILE_DEFS} NDEBUG=1 NDEBUG_DEFINED=1 DEBUG_DEFINED=0 $<$<CONFIG:Debug>:PARTIAL_DEBUG=1>)
+target_compile_definitions(game_debug PRIVATE ${GAME_COMPILE_DEFS} DUSK_BUILDING_GAME=1 $<$<CONFIG:Debug>:DEBUG=1> $<$<CONFIG:Debug>:PARTIAL_DEBUG=1>)
+target_compile_definitions(game_base PRIVATE ${GAME_COMPILE_DEFS} DUSK_BUILDING_GAME=1 NDEBUG=1 NDEBUG_DEFINED=1 DEBUG_DEFINED=0 $<$<CONFIG:Debug>:PARTIAL_DEBUG=1>)
 
 # only apply PCH to game_base since not all headers are necessarily validated with DEBUG=1
-target_precompile_headers(game_base PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_SOURCE_DIR}/include/dusk_pch.hpp>")
+target_precompile_headers(game_base PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/include/dusk_pch.hpp>")
 
 target_include_directories(game_debug PRIVATE ${GAME_INCLUDE_DIRS})
 target_include_directories(game_base PRIVATE ${GAME_INCLUDE_DIRS})
@@ -366,27 +389,56 @@ target_link_libraries(game PUBLIC ${GAME_LIBS})
 if(ANDROID)
     add_library(dusk SHARED src/dusk/main.cpp)
     set_target_properties(dusk PROPERTIES OUTPUT_NAME main)
-else ()
-    add_executable(dusk src/dusk/main.cpp)
-endif ()
+    set(DUSK_MAIN_TARGET dusk)
+elseif(WIN32)
+    # Game DLL: mods link against dusk.lib. TARGET_OBJECTS lets WINDOWS_EXPORT_ALL_SYMBOLS see and export all game symbols
+    add_library(dusk_game SHARED
+        src/dusk/main.cpp
+        $<TARGET_OBJECTS:game_base>
+        $<TARGET_OBJECTS:game_debug>)
+    set_target_properties(dusk_game PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS ON
+        OUTPUT_NAME dusk)
 
-target_compile_definitions(dusk PRIVATE TARGET_PC AVOID_UB=1 VERSION=0)
-target_include_directories(dusk PRIVATE include)
-target_link_libraries(dusk PRIVATE game aurora::main)
+    # Launcher EXE
+    add_executable(dusk WIN32 src/dusk/launcher_win32.cpp)
+    target_link_libraries(dusk PRIVATE dusk_game)
+    target_include_directories(dusk PRIVATE include)
+    set(DUSK_MAIN_TARGET dusk_game)
+else()
+    add_executable(dusk src/dusk/main.cpp)
+    set(DUSK_MAIN_TARGET dusk)
+endif()
+
+target_compile_definitions(${DUSK_MAIN_TARGET} PRIVATE TARGET_PC AVOID_UB=1 VERSION=0)
+target_include_directories(${DUSK_MAIN_TARGET} PRIVATE include)
+# Windows uses TARGET_OBJECTS directly so link GAME_LIBS instead of the static wrapper.
+if(WIN32)
+    target_link_libraries(${DUSK_MAIN_TARGET} PRIVATE ${GAME_LIBS} aurora::main Psapi)
+else()
+    target_link_libraries(${DUSK_MAIN_TARGET} PRIVATE game aurora::main)
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+    target_link_libraries(${DUSK_MAIN_TARGET} PRIVATE dl)
+endif()
+# -rdynamic lets mods call game functions directly
+if(UNIX AND NOT ANDROID)
+    target_link_options(${DUSK_MAIN_TARGET} PRIVATE -rdynamic)
+endif()
 if (TARGET crashpad_handler)
-    add_dependencies(dusk crashpad_handler)
+    add_dependencies(${DUSK_MAIN_TARGET} crashpad_handler)
 endif ()
 
 if (ANDROID)
     # SDLActivity loads SDL_main via dlsym on Android. Since aurora::main is a static
     # archive, force an undefined reference so the linker keeps the SDL_main object.
-    target_link_options(dusk PRIVATE "-Wl,-u,SDL_main")
+    target_link_options(${DUSK_MAIN_TARGET} PRIVATE "-Wl,-u,SDL_main")
 endif ()
 
 if (NOT APPLE)
     add_custom_command(TARGET dusk POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_SOURCE_DIR}/res"
+            "${CMAKE_CURRENT_SOURCE_DIR}/res"
             "$<TARGET_FILE_DIR:dusk>/res"
         COMMENT "Copying resources"
     )
@@ -414,12 +466,12 @@ if (WIN32)
     configure_file(${DUSK_WINDOWS_RESOURCE_DIR}/dusk.rc.in ${DUSK_WINDOWS_RC} @ONLY)
 
     target_sources(dusk PRIVATE ${DUSK_WINDOWS_ICON_ICO} ${DUSK_WINDOWS_RC})
-    set_target_properties(dusk PROPERTIES WIN32_EXECUTABLE TRUE)
-
     if (MSVC)
         target_link_options(dusk PRIVATE /MANIFEST:NO)
     endif ()
 endif ()
+
+include(cmake/DuskModSDK.cmake)
 
 if (APPLE)
     if (IOS)
@@ -470,7 +522,11 @@ if (IOS)
 endif ()
 
 include(extern/aurora/cmake/AuroraCopyRuntimeDLLs.cmake)
-aurora_copy_runtime_dlls(dusk)
+if(WIN32)
+    aurora_copy_runtime_dlls(dusk dusk_game)
+else()
+    aurora_copy_runtime_dlls(dusk)
+endif()
 
 if (DUSK_SELECTED_OPT)
     if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
@@ -509,6 +565,9 @@ function(get_target_prefix target result_var)
     endif ()
 endfunction()
 list(APPEND BINARY_TARGETS dusk)
+if(WIN32)
+    list(APPEND BINARY_TARGETS dusk_game)
+endif()
 set(EXTRA_TARGETS "")
 if (TARGET crashpad_handler)
     list(APPEND EXTRA_TARGETS crashpad_handler)
@@ -516,7 +575,7 @@ endif ()
 install(TARGETS ${BINARY_TARGETS} ${EXTRA_TARGETS} DESTINATION ${CMAKE_INSTALL_PREFIX})
 aurora_install_runtime_dlls(dusk ${CMAKE_INSTALL_PREFIX})
 if (NOT APPLE)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/res DESTINATION ${CMAKE_INSTALL_PREFIX})
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/res DESTINATION ${CMAKE_INSTALL_PREFIX})
 endif ()
 if (CMAKE_BUILD_TYPE STREQUAL Debug OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo)
     set(DEBUG_FILES_LIST "")

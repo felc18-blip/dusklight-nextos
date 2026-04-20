@@ -1387,4 +1387,8 @@ set(DUSK_FILES
         src/dusk/OSContext.cpp
         src/dusk/OSThread.cpp
         src/dusk/OSMutex.cpp
+        src/dusk/hook_system.cpp
+        src/dusk/mod_loader.cpp
+        src/dusk/imgui/ImGuiMenuMods.cpp
+        src/dusk/gx_helper.cpp
 )

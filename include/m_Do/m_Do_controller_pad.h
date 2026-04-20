@@ -4,6 +4,7 @@
 #include "JSystem/JUtility/JUTGamePad.h"
 #include "SSystem/SComponent/c_API_controller_pad.h"
 #include "dusk/settings.h"
+#include "global.h"
 
 // Controller Ports 1 - 4
 enum { PAD_1, PAD_2, PAD_3, PAD_4 };
@@ -94,7 +95,7 @@ public:
     static void stopMotorWaveHard(u32 pad) { return m_gamePad[pad]->stopMotorWaveHard(); }
 
     static JUTGamePad* m_gamePad[4];
-    static interface_of_controller_pad m_cpadInfo[4];
+    static DUSK_GAME_DATA interface_of_controller_pad m_cpadInfo[4];
     static interface_of_controller_pad m_debugCpadInfo[4];
 };
 

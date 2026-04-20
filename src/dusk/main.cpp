@@ -1,5 +1,5 @@
 #if _WIN32
-#define WINDOWS_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <shellapi.h>
 #endif
@@ -120,7 +120,8 @@ int main(int argc, char* argv[]) {
 }
 
 #if _WIN32
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
+// Entry point called by the launcher executable.
+extern "C" int WINAPI dusk_WinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     return RunWindowsGuiEntryPoint();
 }
 #endif

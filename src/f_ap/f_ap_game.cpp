@@ -16,6 +16,7 @@
 #include "d/d_tresure.h"
 #include "dusk/frame_interpolation.h"
 #include "dusk/logging.h"
+#include "dusk/mod_loader.hpp"
 #include "f_op/f_op_camera_mng.h"
 #include "f_op/f_op_draw_tag.h"
 #include "f_op/f_op_overlap_mng.h"
@@ -812,6 +813,7 @@ void fapGm_Execute() {
     fpcM_ManagementFunc(NULL, fapGm_After);
 #endif
     cCt_Counter(0);
+    dusk::ModLoader::instance().tick();
 }
 
 fapGm_HIO_c g_HIO;

@@ -53,6 +53,7 @@
 #include "dusk/game_clock.h"
 #include "dusk/gyro.h"
 #include "dusk/imgui/ImGuiEngine.hpp"
+#include "dusk/mod_loader.hpp"
 #include "dusk/logging.h"
 #include "dusk/main.h"
 #include "dusk/imgui/ImGuiConsole.hpp"
@@ -190,6 +191,8 @@ void main01(void) {
     OSReport("Calling cDyl_InitAsync()...\n");
     cDyl_InitAsync();
 
+    dusk::ModLoader::instance().init();
+
     g_mDoAud_audioHeap = JKRCreateSolidHeap(audioHeapSize, JKRGetCurrentHeap(), false);
     JKRHEAP_NAME(g_mDoAud_audioHeap, "g_mDoAud_audioHeap");
 
@@ -292,6 +295,7 @@ void main01(void) {
     } while (dusk::IsRunning);
 
     exit:;
+    dusk::ModLoader::instance().shutdown();
 }
 
 static bool IsBackendAvailable(AuroraBackend backend) {
@@ -479,6 +483,7 @@ int game_main(int argc, char* argv[]) {
             ("h,help", "Print usage")
             ("console", "Show the Windows console window for logs", cxxopts::value<bool>()->default_value("false")->implicit_value("true"))
             ("dvd", "Path to DVD image file", cxxopts::value<std::string>())
+            ("mods", "Path to mods directory", cxxopts::value<std::string>()->default_value("mods"))
             ("backend", "Graphics API backend to use (auto, d3d12, metal, vulkan, null)", cxxopts::value<std::string>())
             ("cvar", "Override configuration variables without modifying config", cxxopts::value<std::vector<std::string>>());
 
@@ -596,9 +601,8 @@ int game_main(int argc, char* argv[]) {
     mDoMain::developmentMode = 1;  // Force Dev Mode for Debugging
     mDoDvdThd::SyncWidthSound = false;
 
+    dusk::ModLoader::instance().setModsDir(parsed_arg_options["mods"].as<std::string>());
     OSReport("Starting main01 (Game Loop)...\n");
-
-
     main01();
 
     dusk::ShutdownCrashReporting();

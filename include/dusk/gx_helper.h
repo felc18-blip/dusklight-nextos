@@ -18,9 +18,8 @@
 class GXTexObjRAII : public GXTexObj {
 public:
     GXTexObjRAII() : GXTexObj() {}
-    ~GXTexObjRAII() { GXDestroyTexObj(this); }
-
-    void reset() { GXDestroyTexObj(this); }
+    ~GXTexObjRAII();
+    void reset();
 
     GXTexObjRAII(const GXTexObjRAII&) = delete;
     GXTexObjRAII& operator=(const GXTexObjRAII&) = delete;
@@ -44,12 +43,8 @@ typedef GXTexObj TGXTexObj;
 #endif
 
 struct GXScopedDebugGroup {
-    explicit GXScopedDebugGroup(const char* text) {
-        GXPushDebugGroup(text);
-    }
-    ~GXScopedDebugGroup() {
-        GXPopDebugGroup();
-    }
+    explicit GXScopedDebugGroup(const char* text);
+    ~GXScopedDebugGroup();
 };
 
 #define GX_AND_TRACY_SCOPED(name) GXScopedDebugGroup scope(name); ZoneScopedN(name);

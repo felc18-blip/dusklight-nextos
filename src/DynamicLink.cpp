@@ -142,6 +142,12 @@ DynamicModuleControl::DynamicModuleControl(char const* name) {
 }
 #endif
 
+#if TARGET_PC
+// dump() is declared but its definition is inside #if !TARGET_PC above; stub it out.
+void DynamicModuleControlBase::dump() {}
+void DynamicModuleControlBase::dump(char*) {}
+#endif
+
 u32 DynamicModuleControl::sAllocBytes;
 
 JKRArchive* DynamicModuleControl::sArchive;

@@ -322,6 +322,7 @@ namespace dusk {
         if (showMenu && ImGui::BeginMainMenuBar()) {
             m_menuGame.draw();
             m_menuEnhancements.draw();
+            m_menuMods.draw();
             m_menuTools.draw();
 
             const auto fpsLabel =
@@ -365,6 +366,7 @@ namespace dusk {
             m_menuTools.ShowPlayerInfo();
             m_menuTools.ShowAudioDebug();
             m_menuTools.ShowSaveEditor();
+            m_menuMods.showModsWindow();
         }
         m_menuTools.ShowStateShare();
         DuskDebugPad(); // temporary, remove later

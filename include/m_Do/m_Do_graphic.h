@@ -371,6 +371,7 @@ public:
     static int m_height;
     static f32 m_heightF;
     static f32 m_widthF;
+    #endif
 
     #if TARGET_PC
     static f32 m_safeMinXF;
@@ -379,7 +380,6 @@ public:
     static f32 m_safeMaxYF;
     static f32 m_safeWidthF;
     static f32 m_safeHeightF;
-    #endif
     #endif
 };
 

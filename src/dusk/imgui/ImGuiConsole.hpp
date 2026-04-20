@@ -11,6 +11,7 @@
 #include "ImGuiFirstRunPreset.hpp"
 #include "ImGuiMenuEnhancements.hpp"
 #include "ImGuiMenuGame.hpp"
+#include "ImGuiMenuMods.hpp"
 #include "ImGuiMenuTools.hpp"
 #include "ImGuiPreLaunchWindow.hpp"
 #include "imgui.h"
@@ -53,6 +54,7 @@ private:
     ImGuiFirstRunPreset m_firstRunPreset;
     ImGuiMenuGame m_menuGame;
     ImGuiMenuEnhancements m_menuEnhancements;
+    ImGuiMenuMods m_menuMods;
     ImGuiPreLaunchWindow m_preLaunchWindow;
 
     // Keep always last
