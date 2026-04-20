@@ -98,7 +98,6 @@ The `api` pointer is valid for the lifetime of the mod. When using `hook.hpp`, c
 | `load_resource` / `free_resource` | Load files from the `res/` tree in the `.dusk` archive |
 | `register_tab_content` | Add a panel to the mod manager's per-mod tab |
 | `register_menu_item` | Add an item to the quick-access menu |
-| `hook_install` / `hook_pre` / `hook_post` / `hook_replace` | Low-level hook registration (see [Raw C hook API](#raw-c-hook-api)) |
 | `hook_dispatch_pre` / `hook_dispatch_post` | Called by the trampoline, do not call directly |
 
 ---
