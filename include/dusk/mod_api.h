@@ -38,6 +38,9 @@ typedef struct DuskModAPI {
 
     bool (*hook_dispatch_pre) (void* fn_addr, void* args);
     void (*hook_dispatch_post)(void* fn_addr, void* args);
+
+    void  (*service_publish)(const char* name, void* ptr);
+    void* (*service_get)    (const char* name);
 } DuskModAPI;
 
 void mod_init(DuskModAPI* api);

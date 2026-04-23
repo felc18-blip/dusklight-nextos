@@ -16,7 +16,8 @@ Mods are shared libraries packaged into a `.dusk` zip archive. The loader scans 
    - [Post-hooks](#post-hooks)
    - [Replace hooks](#replace-hooks)
    - [Reading and writing arguments](#reading-and-writing-arguments)
-9. [Full Example](#full-example)
+9. [Inter-Mod Communication](#inter-mod-communication)
+10. [Full Example](#full-example)
 
 ---
 
@@ -98,6 +99,8 @@ The `api` pointer is valid for the lifetime of the mod. When using `hook.hpp`, c
 | `register_tab_content` | Add a panel to the mod manager's per-mod tab |
 | `register_menu_item` | Add an item to the quick-access menu |
 | `hook_dispatch_pre` / `hook_dispatch_post` | Called by the trampoline, do not call directly |
+| `service_publish` | Register a named pointer in the global service registry |
+| `service_get` | Look up a named pointer registered by another mod |
 
 ---
 
@@ -247,6 +250,39 @@ dusk::hookAddPre<&daEnemy_c::takeDamage>(on_takeDamage_pre);
 
 For reference parameters (e.g. `const cXyz& pos`), use `argRef<cXyz>` to get a direct reference.
 
+
+---
+
+## Inter-Mod Communication
+
+Mods can expose a public API to each other through a global service registry. The convention for names is `"mod_name/service_name"`.
+
+**Mod A — publishing:**
+
+```cpp
+struct MyModAPI {
+    void (*do_thing)(int value);
+};
+
+static void my_do_thing(int value) { ... }
+static MyModAPI g_api = { my_do_thing };
+
+extern "C" void mod_init(DuskModAPI* api) {
+    api->service_publish("my_mod/api", &g_api);
+}
+```
+
+**Mod B — consuming:**
+
+```cpp
+#include "my_mod_api.h"
+
+static MyModAPI* g_my_mod = nullptr;
+
+extern "C" void mod_init(DuskModAPI* api) {
+    g_my_mod = static_cast<MyModAPI*>(api->service_get("my_mod/api"));
+}
+```
 
 ---
 

@@ -6,6 +6,7 @@
 #include <cstdarg>
 #include <filesystem>
 #include <string>
+#include <unordered_map>
 
 #include "imgui.h"
 #include "miniz.h"
@@ -59,6 +60,7 @@ static constexpr const char* k_libExt = ".so";
 #endif
 
 static dusk::LoadedMod* g_currentMod = nullptr;
+static std::unordered_map<std::string, void*> g_services;
 
 namespace dusk {
 void* g_dusk_hook_current_mod = nullptr;
@@ -134,6 +136,20 @@ static void cb_register_tab_content(void (*draw_fn)(void*), void* userdata) {
         g_currentMod->tab_content.push_back({draw_fn, userdata});
 }
 
+static void cb_service_publish(const char* name, void* ptr) {
+    if (name) {
+        g_services[name] = ptr;
+    }
+}
+
+static void* cb_service_get(const char* name) {
+    if (!name) {
+        return nullptr;
+    }
+    auto it = g_services.find(name);
+    return it != g_services.end() ? it->second : nullptr;
+}
+
 static void cb_register_menu_item(void (*draw_fn)(void*), void* userdata) {
     if (g_currentMod && draw_fn)
         g_currentMod->menu_items.push_back({draw_fn, userdata});
@@ -174,6 +190,8 @@ void ModLoader::buildAPI(LoadedMod& mod) {
     mod.api.hook_replace = api_hook_replace;
     mod.api.hook_dispatch_pre = hookDispatchPre;
     mod.api.hook_dispatch_post = hookDispatchPost;
+    mod.api.service_publish = cb_service_publish;
+    mod.api.service_get     = cb_service_get;
 }
 
 void ModLoader::tryLoadDusk(const std::filesystem::path& modPath) {
@@ -365,6 +383,7 @@ void ModLoader::shutdown() {
         }
     }
     m_mods.clear();
+    g_services.clear();
     DuskLog.info("ModLoader: all mods unloaded");
 }
 
