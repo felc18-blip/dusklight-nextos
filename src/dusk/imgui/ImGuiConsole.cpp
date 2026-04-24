@@ -329,8 +329,8 @@ namespace dusk {
         ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
         if (showMenu && ImGui::BeginMainMenuBar()) {
             m_menuGame.draw();
-            m_menuMods.draw();
             m_menuTools.draw();
+            m_menuMods.draw();
 
             const auto fpsLabel =
                 fmt::format(FMT_STRING("FPS: {:.2f}\n"), ImGui::GetIO().Framerate);
