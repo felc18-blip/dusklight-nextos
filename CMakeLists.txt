@@ -219,6 +219,7 @@ FetchContent_Declare(cxxopts
     URL https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.3.1.tar.gz
     URL_HASH SHA256=3bfc70542c521d4b55a46429d808178916a579b28d048bd8c727ee76c39e2072
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    EXCLUDE_FROM_ALL
 )
 
 message(STATUS "dusk: Fetching nlohmann/json")
@@ -226,12 +227,14 @@ FetchContent_Declare(json
     URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
     URL_HASH SHA256=42f6e95cad6ec532fd372391373363b62a14af6d771056dbfc86160e6dfff7aa
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    EXCLUDE_FROM_ALL
 )
 
 message(STATUS "dusk: Fetching miniz")
 FetchContent_Declare(miniz
     URL https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    EXCLUDE_FROM_ALL
 )
 
 message(STATUS "dusk: Fetching funchook")
@@ -247,9 +250,11 @@ FetchContent_Declare(funchook
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
     PATCH_COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=<SOURCE_DIR> -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch_funchook.cmake
+    EXCLUDE_FROM_ALL
 )
 set(FUNCHOOK_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(FUNCHOOK_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(FUNCHOOK_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(cxxopts json miniz funchook)
 
 if (DUSK_ENABLE_SENTRY_NATIVE)
@@ -644,7 +649,16 @@ set(EXTRA_TARGETS "")
 if (TARGET crashpad_handler)
     list(APPEND EXTRA_TARGETS crashpad_handler)
 endif ()
-install(TARGETS ${BINARY_TARGETS} ${EXTRA_TARGETS} DESTINATION ${CMAKE_INSTALL_PREFIX})
+if (WIN32)
+    # Install the launcher and game DLL, but skip the DLL import library.
+    install(TARGETS ${BINARY_TARGETS} ${EXTRA_TARGETS}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}
+        BUNDLE DESTINATION ${CMAKE_INSTALL_PREFIX}
+    )
+else ()
+    install(TARGETS ${BINARY_TARGETS} ${EXTRA_TARGETS} DESTINATION ${CMAKE_INSTALL_PREFIX})
+endif ()
 aurora_install_runtime_dlls(dusk ${CMAKE_INSTALL_PREFIX})
 if (NOT APPLE)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/res DESTINATION ${CMAKE_INSTALL_PREFIX})
