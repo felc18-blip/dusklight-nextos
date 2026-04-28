@@ -56,21 +56,6 @@ ImGuiWindow* FindDragScrollWindow(ImGuiWindow* window) {
     }
     return nullptr;
 }
-
-void FocusLastMenuBarItem() {
-    ImGuiContext& g = *ImGui::GetCurrentContext();
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
-    const ImGuiID itemId = g.LastItemData.ID;
-    if (window == nullptr || itemId == 0) {
-        return;
-    }
-
-    ImGui::FocusWindow(window);
-    ImGui::SetNavID(itemId, ImGuiNavLayer_Menu, g.CurrentFocusScopeId,
-                    ImGui::WindowRectAbsToRel(window, g.LastItemData.NavRect));
-    ImGui::SetNavCursorVisibleAfterMove();
-    g.NavHighlightItemUnderNav = true;
-}
 }  // namespace
 
 namespace dusk {
@@ -344,17 +329,7 @@ namespace dusk {
         }
 
         m_isHidden = !getSettings().backend.duskMenuOpen;
-        if (dusk::IsGameLaunched) {
-            if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
-                m_isHidden = !m_isHidden;
-            }
-            if (ImGui::IsKeyPressed(ImGuiKey_GamepadBack)) {
-                m_isHidden = !m_isHidden;
-                m_focusMenuBar = !m_isHidden;
-            }
-        }
-
-        bool showMenu = !dusk::IsGameLaunched || !m_isHidden;
+        bool showMenu = !dusk::IsGameLaunched || !CheckMenuViewToggle(ImGuiKey_F1, m_isHidden);
         if (dusk::IsGameLaunched) {
             const bool menuOpen = !m_isHidden;
             if (getSettings().backend.duskMenuOpen != menuOpen) {
@@ -397,7 +372,7 @@ namespace dusk {
         if (dusk::IsGameLaunched && !m_isLaunchInitialized) {
             m_toasts.emplace_back(ImGui::GetIO().MouseSource == ImGuiMouseSource_TouchScreen ?
                                       "Tap to toggle menu"s :
-                                      "Press F1 or Minus/Back to toggle menu"s,
+                                      "Press F1 to toggle menu"s,
                                   2.5f);
             m_isLaunchInitialized = true;
             if (getSettings().game.liveSplitEnabled) {
