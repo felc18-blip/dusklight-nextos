@@ -312,27 +312,27 @@ int daItem_c::_daItem_create() {
         current.angle.x = 0;
         shape_angle.z = 0;
         shape_angle.x = 0;
-
+#if TARGET_PC
+        if (randomizer_IsActive()) {
+            u32 params = fopAcM_GetParam(this);
+            u8 flag = daItem_prm::getItemBitNo(this);
+            u8 stageIdx = getStageID();
+            u16 key = (stageIdx << 8) | flag;
+            auto& freestandingOverrides = randomizer_GetContext().mFreestandingItemOverrides;
+            // If we found an override for this freestanding item
+            if (freestandingOverrides.contains(key)) {
+                // Clear the itemId and set it to out new itemId
+                params &= 0xFFFFFF00;
+                u8 newItemId = freestandingOverrides[key];
+                params |= verifyProgressiveItem(newItemId);
+                fopAcM_SetParam(this, params);
+            }
+        }
+#endif
         field_0x95d = true;
     }
 
-#if TARGET_PC
-    if (randomizer_IsActive()) {
-        u32 params = fopAcM_GetParam(this);
-        u8 flag = daItem_prm::getItemBitNo(this);
-        u8 stageIdx = getStageID();
-        u16 key = (stageIdx << 8) | flag;
-        auto& freestandingOverrides = randomizer_GetContext().mFreestandingItemOverrides;
-        // If we found an override for this freestanding item
-        if (freestandingOverrides.contains(key)) {
-            // Clear the itemId and set it to out new itemId
-            params &= 0xFFFFFF00;
-            u8 newItemId = freestandingOverrides[key];
-            params |= verifyProgressiveItem(newItemId);
-            fopAcM_SetParam(this, params);
-        }
-    }
-#endif
+
 
     m_itemNo = daItem_prm::getItemNo(this);
     BOOL flag = dItem_data::chkFlag(m_itemNo, 2);
