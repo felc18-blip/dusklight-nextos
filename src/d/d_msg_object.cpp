@@ -31,6 +31,7 @@
 
 #if TARGET_PC
 #include "d/d_item.h"
+#include "dusk/randomizer/game/stages.h"
 #include "dusk/randomizer/game/tools.h"
 #include "dusk/randomizer/game/verify_item_functions.h"
 #include "dusk/version.hpp"
@@ -686,12 +687,22 @@ u32 dMsgObject_c::getMessageIndex(u32 param_0) {
 u32 dMsgObject_c::getRevoMessageIndex(u32 param_1) {
 #if TARGET_PC
     if (randomizer_IsActive()) {
-        u32 key = (dMsgObject_getGroupID() << 16) | param_1;
-        auto& flowItemOverrides = randomizer_GetContext().mFlowItemMessageOverrides;
-        if (flowItemOverrides.contains(key)) {
-            u8 itemId = verifyProgressiveItem(flowItemOverrides[key]);
+        // Special case for Ilia Memory Reward Text
+        // If we're in the sanctuary cutscene where we get the reward, override the text.
+        // Otherwise we override the text whenever we get the regular horse call
+        if (param_1 == 233 && playerIsInRoomStage(0, "R_SP109") && dComIfGp_getLayerNo() == 9) {
+            u8 itemId = verifyProgressiveItem(randomizer_getItemAtLocation("Ilia Memory Reward"));
             param_1 = getItemMessageID(itemId);
             execItemGet(itemId);
+        } else {
+            // Else override the text if we have an override
+            u32 key = (dMsgObject_getGroupID() << 16) | param_1;
+            auto& flowItemOverrides = randomizer_GetContext().mFlowItemMessageOverrides;
+            if (flowItemOverrides.contains(key)) {
+                u8 itemId = verifyProgressiveItem(flowItemOverrides[key]);
+                param_1 = getItemMessageID(itemId);
+                execItemGet(itemId);
+            }
         }
     }
 #endif

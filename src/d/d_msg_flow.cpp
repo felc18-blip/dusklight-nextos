@@ -2604,6 +2604,11 @@ int dMsgFlow_c::event035(mesg_flow_node_event* i_flowNode_p, fopAc_ac_c* i_speak
     } else if (prm0 == dItemNo_RAFRELS_MEMO_e || prm0 == dItemNo_ASHS_SCRIBBLING_e) {
         dComIfGs_setItem(SLOT_19, dItemNo_NONE_e);
     } else if (prm0 == dItemNo_LETTER_e || prm0 == dItemNo_BILL_e || prm0 == dItemNo_WOOD_STATUE_e || prm0 == dItemNo_IRIAS_PENDANT_e) {
+#if TARGET_PC
+        if (randomizer_IsActive())
+            offWarashibeItem(prm0);
+        else
+#endif
         dComIfGs_setWarashibeItem(dItemNo_NONE_e);
     }
 

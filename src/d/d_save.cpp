@@ -1200,6 +1200,13 @@ void dSv_memBit_c::offSwitch(int i_no) {
 }
 
 BOOL dSv_memBit_c::isSwitch(int i_no) const {
+#if TARGET_PC
+    if (randomizer_IsActive() && getStageID() == Hidden_Village_Interiors) {
+        if (i_no == 0x61) { // Is Impaz in her house
+            return true;
+        }
+    }
+#endif
     JUT_ASSERT(2814, 0 <= i_no && i_no < 128);
     return (mSwitch[i_no >> 5] & 1 << (i_no & 0x1F)) ? TRUE : FALSE;
 }
@@ -1380,6 +1387,19 @@ BOOL dSv_event_c::isEventBit(const u16 i_no) const {
                 }
                 break;
             }
+            case GAVE_ILIA_HER_CHARM:    // Gave Ilia the charm
+            case CITY_OOCCOO_CS_WATCHED: // CiTS Intro CS watched
+            {
+                if (daAlink_c::checkStageName(allStages[Hidden_Village])) {
+                    if (!dComIfGs_isEventBit(GOT_ILIAS_CHARM)) {
+                        // If we haven't gotten the item from Impaz then we need to return false or it
+                        // will break her dialogue.
+                        return false;
+                    }
+                }
+                break;
+            }
+
             case GORON_MINES_CLEARED:
             {
                 if (daAlink_c::checkStageName(allStages[Goron_Mines]) || daAlink_c::checkStageName(allStages[Death_Mountain_Interiors])){
