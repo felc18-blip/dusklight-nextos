@@ -465,7 +465,9 @@ void dSv_player_item_c::setLineUpItem() {
 #if TARGET_PC
     // Allow rando to use all item slots
     if (randomizer_IsActive()) {
-        mItemSlots[23] = 7;
+        if (mItems[7] != dItemNo_NONE_e) {
+            mItemSlots[slot_idx] = 7;
+        }
     }
 #endif
 }
