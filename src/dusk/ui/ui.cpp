@@ -52,9 +52,6 @@ void shutdown() noexcept {
 }
 
 Document& push_document(std::unique_ptr<Document> doc, bool show) noexcept {
-    if (auto* top = top_document()) {
-        top->hide(false);
-    }
     Document& ret = *doc;
     sDocuments.push_back({std::move(doc)});
     if (show) {
@@ -90,9 +87,23 @@ void update() noexcept {
     for (const auto& doc : sDocuments) {
         doc->update();
     }
+
+    // Remove closed documents
     const auto [first, last] =
         std::ranges::remove_if(sDocuments, [](const auto& doc) { return doc->closed(); });
     sDocuments.erase(first, last);
+
+    // If no documents have focus, explicitly focus the top one
+    if (auto* context = aurora::rmlui::get_context();
+        context != nullptr && context->GetFocusElement() == nullptr)
+    {
+        for (auto& doc : std::views::reverse(sDocuments)) {
+            if (!doc->closed() && !doc->pending_close() && doc->focus()) {
+                break;
+            }
+        }
+    }
+
     sync_input_block();
 }
 
