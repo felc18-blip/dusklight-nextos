@@ -26,9 +26,8 @@
 #include <cstring>
 
 #if TARGET_PC
-#include "dusk/randomizer/game/tools.h"
-#include "dusk/randomizer/game/verify_item_functions.h"
 #include "dusk/version.hpp"
+#include "dusk/randomizer/game/randomizer_context.hpp"
 #endif
 
 class dmg_rod_HIO_c : public JORReflexible {
