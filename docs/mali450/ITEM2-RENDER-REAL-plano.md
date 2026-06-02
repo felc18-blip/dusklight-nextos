@@ -37,6 +37,40 @@ formato fixo (ex: pos vec3 f32 + cor vec4 u8). Fazer isso no ponto onde o draw e
 IBO uint16 (ja existe g_indexBuffer). Buffers GL reais (glGenBuffers/glBufferData), nao so
 cpu mirror.
 
+### DESIGN PRONTO-PRA-CODAR do conversor de vertices (tudo levantado)
+Dados/estruturas (confirmado no codigo):
+- `DrawData` (pipeline.hpp): vertRange, idxRange, uniformRange, vtxCount, indexCount,
+  instanceCount, bindGroups, dstAlpha. (NAO carrega attrs -> converter onde config existe.)
+- `AttrConfig` (gx.hpp:436): attrType(GX_NONE/DIRECT/INDEX8/INDEX16), cnt, compType(GXCompType),
+  offset(no vertice), stride(do array), frac, le.
+- Buffers (gfx/common.cpp, static): `g_verts`(vbuf), `g_storage`(abuf arrays), `g_indices`.
+  Base: `g_verts.data()+vertRange.offset`. Arrays indexados em g_storage via vaRanges
+  (handle_draw_unmerged:1616 push_storage). Indices uint16 em g_indices (idxRange).
+- Stride do vertice = config.shaderConfig.vtxStride.
+
+Ponto de implementacao: **`handle_draw_unmerged`** (command_processor.cpp:1593) — config+vertRange
++arrays disponiveis. Algoritmo (sob AURORA_GLES2):
+1. Pra cada um dos vtxCount vertices (base = g_verts+vertRange.offset + v*vtxStride):
+   - POS (GX_VA_POS): se DIRECT, ler em +attrs[POS].offset (cnt floats, big-endian -> swap).
+     Se INDEX8/16, ler indice, buscar em g_storage[vaRange + idx*attrs.stride].
+   - CLR0: idem (cor u8x4 ou packed). Default branco se ausente.
+   - escrever flat: [px,py,pz (f32 LE), r,g,b,a (f32 LE)] interleaved (stride 28).
+2. glGenBuffers VBO + glBufferData(flat). Guardar handle+vtxCount em DrawData (campos novos
+   sob AURORA_GLES2). Indices: criar IBO uint16 de g_indices[idxRange].
+3. Em `render()` (sob AURORA_GLES2): glUseProgram (ja via SetPipeline), bind VBO/IBO,
+   glVertexAttribPointer(0=pos vec3, 1=col vec4), setar u_mvp (ver abaixo), glDrawElements.
+
+Helpers de endian: `read_u16/read_f32 big-endian` ja existem (command_processor.cpp usa
+read_u16). Reusar ou escrever swap simples.
+
+**u_mvp**: a matriz model-view-proj do vertice esta no uniform buffer (build_uniform,
+shader_info). Etapa 2a: derivar a matriz combinada (pos mtx * proj). Conferir layout no
+gerador WGSL (vtxXfrAttrs) e em build_uniform. Primeiro teste: passar identidade ou ortho
+2D pra validar o pipeline com a UI 2D, depois a matriz real pro 3D.
+
+GL real nos buffers: hoje os WGPUBuffer sao so cpu mirror. Pro draw, precisa de VBO/IBO GL
+de verdade (glGenBuffers/glBufferData) — fazer no converter (acima), nao depender do mirror.
+
 ### Etapa 2: vertex attributes (parede 1)
 - O VS WGSL le `vbuf` (storage) via `attr_load(config, attr, vidx)` (shader.cpp:632).
   No GLES2: declarar `attribute` por attr ativo (config.attrs) e bindar VBO real.
