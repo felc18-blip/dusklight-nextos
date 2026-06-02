@@ -71,6 +71,17 @@ gerador WGSL (vtxXfrAttrs) e em build_uniform. Primeiro teste: passar identidade
 GL real nos buffers: hoje os WGPUBuffer sao so cpu mirror. Pro draw, precisa de VBO/IBO GL
 de verdade (glGenBuffers/glBufferData) — fazer no converter (acima), nao depender do mirror.
 
+**RESTRICAO CRITICA (confirmada)**: DrawData e guardado numa `union Command::Data`
+(common.cpp:57). NAO pode ter std::vector/objetos — so campos triviais (Range, GLuint, ints).
+=> NAO converter pra heap por-draw em DrawData. Espelhar o streaming do Aurora:
+  - globais `g_glVerts`(ByteBuffer flat) + `g_glIndices`(uint16), limpos em begin_frame.
+  - handle_draw_unmerged: converte -> append em g_glVerts/g_glIndices; guarda `gfx::Range
+    glVertRange/glIdxRange` (trivial) em DrawData (campos novos sob AURORA_GLES2).
+  - end_frame/render: upload UMA vez g_glVerts->VBO, g_glIndices->IBO; cada draw bind
+    attribs no offset da sua range + glDrawElements. Mesmo modelo do g_vertexBuffer.
+Arquivos a tocar: command_processor.cpp (converter), pipeline.hpp (campos DrawData),
+pipeline.cpp (render: bind+draw), common.cpp (g_glVerts + clear no begin_frame + upload).
+
 ### Etapa 2: vertex attributes (parede 1)
 - O VS WGSL le `vbuf` (storage) via `attr_load(config, attr, vidx)` (shader.cpp:632).
   No GLES2: declarar `attribute` por attr ativo (config.attrs) e bindar VBO real.
