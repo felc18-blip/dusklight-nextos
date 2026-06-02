@@ -24,6 +24,19 @@ Item 1 (apresentacao na janela) JA funciona e e visivel (azul na tela).
 - Falta: derivar `u_mvp` do GX (matrizes pos/proj do uniform) e ligar attribs reais.
 - Meta visual: o fade do JUTFader (quad colorido) aparece -> tela deixa de ser so azul.
 
+### ⚠️ DESCOBERTA CRITICA sobre o formato de vertice (attr_load, shader.cpp:632)
+O vertex pulling do Aurora e MAIS complexo que "ler attribs inline":
+1. **Atributos indexados** (GX_INDEX8/16): vbuf guarda um INDICE; o dado real (pos/nrm)
+   vive em `abuf` (array buffer) em `array_start[attr] + indice*stride`. Indirecao dos
+   vertex arrays do GameCube. NAO mapeia direto pra glVertexAttribPointer.
+2. **Big-endian**: "Vertex buffer is always big endian". Attributes GL = little-endian.
+3. Formatos variados (s16/f32/u8 norm), cnt 2 ou 3 (pos pode ser vec2), cores empacotadas.
+**Consequencia**: pra GLES2, montar na CPU um VBO PLANO (de-indexado) + BYTE-SWAP, num
+formato fixo (ex: pos vec3 f32 + cor vec4 u8). Fazer isso no ponto onde o draw eh submetido
+(handle_draw_unmerged / GXVert), tendo acesso a vbuf+abuf+array_start. Indices viram um
+IBO uint16 (ja existe g_indexBuffer). Buffers GL reais (glGenBuffers/glBufferData), nao so
+cpu mirror.
+
 ### Etapa 2: vertex attributes (parede 1)
 - O VS WGSL le `vbuf` (storage) via `attr_load(config, attr, vidx)` (shader.cpp:632).
   No GLES2: declarar `attribute` por attr ativo (config.attrs) e bindar VBO real.
