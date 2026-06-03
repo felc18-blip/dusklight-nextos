@@ -71,3 +71,74 @@ Frames 20/40/70 pretos = telas de boot/loading. Frame 110+ = intro. Não é bug.
 ## Ferramentas
 Captura: dump glReadPixels->PPM no present (frame N). Converter `magick f.ppm f.png`. Eu vejo
 via Read da imagem. Logs de UV/tex já instrumentados em pipeline.cpp render().
+
+---
+## INVESTIGACAO VERTICE (2026-06-02/03) — endianness + staleness dos arrays
+Sintoma: terreno chapado + "leque" (vertices voando ao infinito). Instrumentei stats por-draw
+(AURORA_GLES2_VTXLOG) + dump cru de bytes (AURORA_GLES2_CAP).
+
+ACHADOS:
+1. **Draws grandes (terreno) usam POS F32 indexado** (cmp=4, INDEX16, arrStride=12). Modelos
+   pequenos usam S16 (cmp=3, frac=9, ±64 local). 
+2. **Staleness**: g_storage/g_verts mapeiam a memoria do STAGING buffer da GPU, DESMAPEADA no
+   end_frame ANTES de gfx::render(). Ler o ponteiro do array do jogo (ou g_storage) no render =
+   dados sobrescritos/stale. FIX: gles2_copy_array() copia cada array indexado pra um std::vector
+   HEAP no record-time (dedup por ponteiro/frame, reset no begin_frame). Sobrevive ao unmap.
+3. **Endianness**: com a copia estavel, F32 lido BE = lixo 1e38; lido LE = sao (34151, coords de
+   mundo). S16 lido BE = sao (±64). => arrays F32 little-endian, inteiros big-endian.
+4. **PORÉM**: decodificar F32 em LE (coords sas) => TELA PRETA consistente (3 runs). BE (F32 vira
+   lixo off-screen) => terreno S16 visivel + leque. Pular as draws F32 (com LE) NAO devolve o
+   terreno => nao e o plano F32 cobrindo. Provavel: as coords F32 enormes (34151, span 100k) nao
+   mapeiam na tela com o modelview atual — questao de PROJECAO/MODELVIEW por-draw do terreno
+   (talvez o terreno use world-space sem o pnMtx que aplico, ou precisa de outra matriz).
+
+ESTADO ESTAVEL ESCOLHIDO: BE p/ tudo (le=false) — mostra o terreno (modelos S16). Infra de
+copia-heap mantida (correta, sem stale). 
+
+PROXIMO PASSO (sessao futura, idealmente em ambiente de GL estavel — o driver NVIDIA do PC
+crasha aleatoriamente, polui o debug por captura):
+- Investigar a MVP/modelview das draws F32 (terreno world-space). Conferir se currentPnMtx e o
+  z-adjust (z'=w-z) batem p/ coords grandes. Talvez o terreno precise de modelview identidade +
+  so a proj, ou de uma matriz de mundo especifica.
+- Depois disso: F32=LE deve render o terreno F32 corretamente.
+
+---
+## BREAKTHROUGH 2026-06-03 — profundidade GC->GLES2 (era a causa da tela preta!)
+Com a copia heap confiavel pude logar clip-space: **NDC z ≈ 1.00 pra TODOS os vertices**.
+Causa: o z-adjust `z' = w - z` e a conversao GC->**WebGPU** (profundidade [0,1], usada pelo
+WGSL/Dawn). Mas GLES2 usa NDC z em **[-1,1]**. Com w-z, geometria perto -> NDC z=2 -> CLIPADA
+no far plane; tudo comprime em [1,2] e some. (No build BE so o lixo F32 esticado, com z fora
+disso, escapava -> a "terreno tan" era ARTEFATO, nao geometria real.)
+**FIX**: `gl_clip_z = 2*z_orig + w` (mapeia GC NDC [-1,0] -> GL [-1,1]). 
++ F32 arrays = little-endian (decode `le=(compType==4)`).
+RESULTADO: geometria REAL (chao marrom) renderiza na POSICAO CORRETA. Confirmado frame d0690.
+
+## ESTADO e PROXIMO PASSO
+- Cena ainda PARCIAL (chao aparece, resto preto na maioria dos frames).
+- Hipotese forte do que falta: **PNMTXIDX por-vertice**. Diagnostico mostrou que os MODELOS
+  (S16) tem glHasPnMtxIdx=1 (usam indice de matriz por-vertice) mas eu aplico currentPnMtx ->
+  eles mapeiam errado/fora da tela. O chao (F32, sem pnmtxidx, currentPnMtx) renderiza certo.
+- Implementar per-vertex matrix: snapshot dos 10 pnMtx[].pos (+proj) por-draw num buffer estavel;
+  no render, por vertice ler o indice (attr GX_VA_PNMTXIDX) e usar pnMtx[idx] no lugar da MVP fixa.
+
+## ESTADO APOS z-fix + pnmtxidx (2026-06-03)
+- Chao/terreno F32 renderiza na POSICAO CORRETA, faixa completa (frame 2100, mean 0.11).
+- pnmtxidx por-vertice implementado (10 MVPs no heap, pre-transform CPU->NDC + u_mvp=identidade).
+  Nao mudou frames capturados (provavel: modelos aparecem em frames que nao capturei / cena ainda
+  carregando). Infra pronta.
+- FALTA AINDA: (1) textura nas superficies (chapadas — TEV/UV nessas draws), (2) ceu preto (geom
+  de ceu nao renderiza), (3) confirmar modelos/personagens.
+- AMBIENTE: driver NVIDIA do PC crasha (RC=139) e a captura pega muito frame preto (loading/fade).
+  Verificacao visual fica dificil. Ideal proximo: GL estavel ou device Mali real.
+
+## 🏰 CENA RECONHECIVEL NO MALI-450 REAL (2026-06-03)
+Castelo de Hyrule + Cidadela (rua/predios texturizados) + estruturas laranjas renderizam no
+device! 4 bugs que SO aparecem no Mali real (no PC/zink o depth/precisao nao testavam de verdade):
+1. DEPTH (o bloqueio do EFB preto): Aurora reverse-Z (clear 0.0) + GC NDC z [0,-1]. Fix:
+   z-fix=-2z-w, clear=1.0-clearVal, glDepthMask(TRUE), respeitar depthFunc/depthUpdate/colorUpdate.
+2. mediump overflow (clip ~250k > 65504): two-step GPU (modelview->eye->proj) + near-clipping.
+3. SIGBUS: alinhar buffers heap a 16.
+4. fragment Utgard mediump-only.
+Texturas amostram com detalhe (raw-tex debug). FALTA: material color + lighting reais (alguns
+frames lavam branco sem luz), tiling/detalhe. PROCESSO device: pkill dusklight antes do scp,
+mask emustation, AURORA_GLES2_CAP -> /tmp/d*.ppm.
