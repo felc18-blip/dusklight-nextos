@@ -42,3 +42,19 @@ e mandar os pedaços relevantes (kcolors, matColor) como glUniform. Isso reusa o
 ## Estado atual (baseline)
 FS = `texture2D(u_tex0, uv) * v_color`. Roda 30fps, intro reconhecivel mas chapada.
 O TEV completo e o que da o detalhe/cor/sombra corretos.
+
+---
+## PROGRESSO 2026-06-02 (sessao TEV)
+- **Passo A**: gerador config-driven feito (le config.tevStages, gera cadeia de estagios
+  combine `(d OP mix(a,b,c))*scale+bias` clamp -> reg; prev acumula). REGRESSAO: tela branca.
+- **Causa da regressao**: TEV referencia creg (C0-2) e konst, que eu inicializava 0/1.
+- **Passo C/D**: alimento valores reais — u_creg[4]=colorRegs, u_kcolor[4]=kcolors;
+  konst por-estagio via kcSel/kaSel (kcolor.rgb / componente / fracoes 8/8..1/8).
+- **Bug do estado diferido**: render() roda no FIM do frame; ler g_gxState.colorRegs/kcolors
+  ali pega o ULTIMO draw (stale). FIX: snapshot por-draw no command_processor (DrawData.
+  glColorRegs/glKColors), igual ao glMvp. render() le do DrawData.
+- **Verificacao**: dump dos FS gerados (AURORA_GLES2_DUMP_SHADERS -> /tmp/tev_shaders.txt)
+  confirma combines corretos: `mix(0,sampled0,tevreg0)`=tex*reg, `mix(sampled0,0,0)`=tex pura,
+  multi-estagio acumulando prev. Logica do gerador OK.
+- **FALTA (proximos)**: raster real (matColor+lighting; hoje=cor de vertice), multi-textura
+  (tex1..7 + uv1..7), swap tables, alpha compare real (u_alphaRef do AlphaCompare), fog.
